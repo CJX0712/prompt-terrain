@@ -18,7 +18,7 @@ PromptTerrain 做的就是这件事的自动化版本：给文本做一次"断�
 
 ```bash
 # 方式一：直接打开
-git clone https://github.com/<your-name>/prompt-terrain.git
+git clone https://github.com/CJX0712/prompt-terrain.git
 cd prompt-terrain
 # 双击 index.html，或：
 open index.html      # macOS
