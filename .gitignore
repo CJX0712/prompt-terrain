@@ -1,0 +1,17 @@
+# 本目录是纯静态单文件项目，仅需忽略系统与编辑器产生的杂项
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时与导出产物
+*.tmp
+*.log
+prompt-terrain-report.md
+prompt-terrain.png

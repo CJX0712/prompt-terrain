@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PromptTerrain · 提示词冗余断层扫描仪</title>
+<style>
+:root{
+  --bg:#f5f7fa;
+  --panel:#ffffff;
+  --border:#e2e6ec;
+  --border-strong:#cbd3dd;
+  --text:#161a20;
+  --muted:#6b7480;
+  --faint:#98a1ad;
+  --accent:#2563eb;
+  --accent-soft:#eaf1ff;
+  --red:#e0483d;
+  --red-soft:#fdeceb;
+  --green:#1a8a4f;
+  --amber:#c07a10;
+  --teal:#0f9c8f;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+header{
+  background:var(--panel);border-bottom:1px solid var(--border);
+  padding:14px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:20;
+}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:17px;margin:0;letter-spacing:-.2px;font-weight:650}
+.brand .sub{font-size:12.5px;color:var(--muted)}
+.brand .cn{font-size:12.5px;color:var(--faint)}
+.tags{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.tag{font-size:11px;color:var(--muted);background:#f1f4f8;border:1px solid var(--border);border-radius:20px;padding:2px 9px}
+main{
+  display:grid;grid-template-columns:minmax(360px,420px) minmax(0,1fr);
+  gap:16px;padding:16px 22px 40px;align-items:start;max-width:1680px;margin:0 auto;
+}
+@media (max-width:1120px){ main{grid-template-columns:1fr} }
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.panel:last-child{margin-bottom:0}
+.panel-hd{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:12.5px;font-weight:600;color:var(--text);background:#fbfcfe;
+}
+.panel-hd .note{margin-left:auto;font-weight:400;font-size:11.5px;color:var(--faint)}
+.panel-bd{padding:12px 14px}
+
+button{
+  font:inherit;font-size:12.5px;cursor:pointer;
+  background:#fff;border:1px solid var(--border-strong);color:var(--text);
+  border-radius:7px;padding:5px 11px;transition:.14s;
+}
+button:hover{background:#f3f6fa;border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#1d4fd7;color:#fff}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---- editor ---- */
+.ta-wrap{position:relative;height:340px;margin:12px}
+.ta-wrap > .ta-backdrop,.ta-wrap > textarea{
+  position:absolute;inset:0;margin:0;width:100%;height:100%;
+  padding:12px 14px;border:1px solid var(--border);border-radius:10px;
+  font-family:var(--mono);font-size:12.5px;line-height:1.75;
+  white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;
+  letter-spacing:0;tab-size:4;
+}
+.ta-backdrop{background:#fff;color:transparent;overflow:hidden;pointer-events:none}
+.ta-hl{white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word}
+.ta-hl mark{background:rgba(224,72,61,.20);border-radius:2px;color:transparent}
+.ta-hl mark.hot{background:rgba(224,72,61,.50)}
+.ta-wrap > textarea{
+  background:transparent;color:var(--text);resize:none;outline:none;
+  overflow-y:scroll;
+}
+.ta-wrap > textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ta-wrap > textarea::placeholder{color:var(--faint)}
+
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;padding:0 12px 12px}
+.opt{display:flex;flex-direction:column;gap:4px}
+.opt label{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.opt label b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.opt input[type=range]{width:100%;accent-color:var(--accent);height:16px}
+.checks{display:flex;gap:14px;flex-wrap:wrap;padding:2px 12px 12px}
+.checks label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer}
+.checks input{accent-color:var(--accent)}
+
+/* ---- stats ---- */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+@media (max-width:900px){ .stats{grid-template-columns:repeat(3,1fr)} }
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.stat .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.stat .v{font-size:21px;font-weight:650;letter-spacing:-.4px;font-variant-numeric:tabular-nums;margin-top:2px}
+.stat .u{font-size:11.5px;color:var(--faint);font-weight:400;margin-left:2px}
+.stat.warn .v{color:var(--red)}
+.stat.ok .v{color:var(--green)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* ---- viz ---- */
+.viz{position:relative;padding:10px 14px 6px}
+.viz canvas{display:block;width:100%}
+.rowlab{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--faint);padding:5px 0 1px}
+.rowlab .sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.crosshair{position:absolute;top:10px;bottom:6px;width:1px;background:var(--accent);opacity:0;pointer-events:none}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:#161a20;color:#fff;font-size:11.5px;line-height:1.5;
+  padding:6px 9px;border-radius:7px;white-space:pre;z-index:5;
+  font-family:var(--mono);box-shadow:0 4px 14px rgba(0,0,0,.18);
+}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:-1px}
+
+/* ---- list ---- */
+.list{max-height:290px;overflow:auto}
+.lrow{
+  display:grid;grid-template-columns:34px 1fr 52px 60px 76px;gap:10px;align-items:center;
+  padding:7px 14px;border-bottom:1px solid #f0f3f7;cursor:pointer;font-size:12.5px;
+}
+.lrow:hover{background:#f7f9fc}
+.lrow:last-child{border-bottom:0}
+.lrow .idx{color:var(--faint);font-variant-numeric:tabular-nums;font-size:11.5px}
+.lrow .frag{
+  font-family:var(--mono);font-size:11.5px;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.lrow .num{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+.lrow .save{font-variant-numeric:tabular-nums;color:var(--red);text-align:right;font-weight:600}
+.lhead{
+  display:grid;grid-template-columns:34px 1fr 52px 60px 76px;gap:10px;
+  padding:6px 14px;font-size:11px;color:var(--faint);border-bottom:1px solid var(--border);background:#fbfcfe;
+}
+.lhead .num,.lhead .save{text-align:right}
+.empty{padding:22px 14px;color:var(--faint);font-size:12.5px;text-align:center}
+
+/* ---- table ---- */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:6px 10px;border-bottom:1px solid #f0f3f7;text-align:right}
+th{font-size:11px;color:var(--faint);font-weight:500;background:#fbfcfe;border-bottom:1px solid var(--border)}
+td:first-child,th:first-child{text-align:left}
+td input{
+  font:inherit;font-size:12px;width:100%;min-width:64px;
+  border:1px solid transparent;background:transparent;border-radius:5px;padding:3px 6px;color:var(--text);
+}
+td input:hover{border-color:var(--border)}
+td input:focus{outline:none;border-color:var(--accent);background:#fff}
+td input.t{text-align:right;font-variant-numeric:tabular-nums}
+td.str{text-align:left;font-variant-numeric:tabular-nums;color:var(--muted)}
+td.bar{position:relative;min-width:110px}
+td.bar .fill{position:absolute;left:10px;top:50%;transform:translateY(-50%);height:14px;border-radius:3px;background:var(--accent-soft)}
+td.bar span{position:relative;font-variant-numeric:tabular-nums}
+
+.about{font-size:12px;color:var(--muted);line-height:1.75}
+.about code{font-family:var(--mono);font-size:11.5px;background:#f1f4f8;padding:1px 4px;border-radius:4px;color:var(--text)}
+.about b{color:var(--text)}
+details summary{cursor:pointer;font-size:12.5px;font-weight:600;padding:10px 14px;color:var(--text)}
+details[open] summary{border-bottom:1px solid var(--border)}
+.warnbar{
+  margin:0 12px 12px;padding:7px 10px;border-radius:8px;
+  background:#fff7e6;border:1px solid #f5dcae;color:var(--amber);font-size:12px;display:none;
+}
+.foot{padding:14px 22px 30px;text-align:center;color:var(--faint);font-size:11.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>PromptTerrain</h1>
+    <span class="sub">提示词冗余断层扫描仪</span>
+    <span class="cn">Redundancy Tomography for Prompts &amp; Long Text</span>
+  </div>
+  <div class="tags">
+    <span class="tag">单文件 HTML</span>
+    <span class="tag">零依赖</span>
+    <span class="tag">100% 离线本地计算</span>
+    <span class="tag">不上传任何数据</span>
+  </div>
+</header>
+
+<main>
+  <!-- ================= LEFT ================= -->
+  <section>
+    <div class="panel">
+      <div class="panel-hd">输入文本
+        <span class="note" id="charNote">0 字符</span>
+      </div>
+
+      <div class="ta-wrap">
+        <div class="ta-backdrop" id="backdrop"><div id="hl"></div></div>
+        <textarea id="input" spellcheck="false" placeholder="在此粘贴你的 system prompt、长文档、代码或任意文本……
+
+PromptTerrain 会做三件事：
+  1. 估算 token 数与上下文占用
+  2. 用滑窗自相似度找出所有重复片段
+  3. 把结果画成一条可点击的「断层扫描带」
+
+所有计算都在你的浏览器里完成，文本不会离开这台设备。"></textarea>
+      </div>
+
+      <div class="warnbar" id="warnbar"></div>
+
+      <div class="checks">
+        <label><input type="checkbox" id="ignoreCase" checked> 忽略大小写</label>
+        <label><input type="checkbox" id="ignoreSpace" checked> 忽略空白差异</label>
+        <label><input type="checkbox" id="ignorePunct"> 忽略标点</label>
+        <label><input type="checkbox" id="live" checked> 实时分析</label>
+      </div>
+
+      <div class="opts">
+        <div class="opt">
+          <label>检测粒度 n-gram <b id="vN">10</b> 字符</label>
+          <input type="range" id="rN" min="4" max="40" value="10">
+        </div>
+        <div class="opt">
+          <label>最小重复长度 <b id="vM">8</b> 字符</label>
+          <input type="range" id="rM" min="4" max="60" value="8">
+        </div>
+        <div class="opt">
+          <label>熵窗口 <b id="vW">80</b> 字符</label>
+          <input type="range" id="rW" min="16" max="400" value="80">
+        </div>
+        <div class="opt">
+          <label>预计输出 <b id="vO">500</b> token</label>
+          <input type="range" id="rO" min="0" max="8000" step="100" value="500">
+        </div>
+      </div>
+
+      <div class="panel-bd btns" style="border-top:1px solid var(--border)">
+        <button class="primary" id="btnSample">载入示例</button>
+        <button id="btnRun">立即分析</button>
+        <button id="btnClear">清空</button>
+        <button id="btnMd">导出 Markdown</button>
+        <button id="btnPng">导出 PNG</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <details>
+        <summary>算法说明</summary>
+        <div class="panel-bd about">
+          <p><b>1. 冗余检测。</b>先把文本按选项归一化（可选忽略大小写、空白、标点），同时保留一张 <code>归一化下标 → 原文下标</code> 的映射表。然后以长度 <code>n</code> 滑动取字符 n-gram，凡是出现 ≥2 次的 n-gram，就把它覆盖到的所有位置标记为重复。标记结果合并成连续区间后，回映射到原文坐标，再用 <code>indexOf</code> 找出每个区间的全部出现位置。</p>
+          <p><b>2. 冗余率。</b>被标记的字符数 ÷ 总字符数。它衡量的是「有多少字符参与了至少一次重复」，而不是压缩率上限——但两者高度相关。</p>
+          <p><b>3. 可省 token。</b>每个重复区间出现 <code>k</code> 次、长度 <code>l</code>，则可省 <code>(k−1)×l</code> 字符；换算成 token 后累加即为「去重后大约能省下的上下文」。</p>
+          <p><b>4. 熵地形。</b>以 <code>w</code> 为窗口、<code>w/6</code> 为步长滑动，逐窗计算字符级香农熵 <code>H = −Σ p·log₂p</code>，再除以 <code>log₂(不同字符数)</code> 归一化到 0–1。归一化熵越低，说明该窗口字符分布越集中、越模板化；<b>地形的谷底</b>通常就对应着重复的套话、样板条款或复制粘贴的代码块。</p>
+          <p><b>5. Token 估算。</b>CJK 字符按 1 token/字，拉丁字母按 4 字符/token，数字按 3 字符/token，标点按 0.5 token/个。这是保守近似，用于预算评估，不等于任何厂商的真实分词结果。</p>
+          <p style="margin-bottom:0;color:var(--faint)">成本表中的单价与上下文窗口均为<b>可编辑的示例占位值</b>，请按你实际使用的模型与当期定价自行修改；本工具不内置、也不保证任何定价数据的时效性。</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================= RIGHT ================= -->
+  <section>
+    <div class="stats" id="stats"></div>
+
+    <div class="panel">
+      <div class="panel-hd">断层扫描
+        <span class="legend" style="margin-left:auto">
+          <span><i style="background:#2563eb"></i>汉字</span>
+          <span><i style="background:#0f9c8f"></i>字母</span>
+          <span><i style="background:#c07a10"></i>数字</span>
+          <span><i style="background:#94a1b3"></i>标点</span>
+          <span><i style="background:#e0483d"></i>重复覆盖</span>
+        </span>
+      </div>
+      <div class="viz" id="viz">
+        <div class="rowlab">Token 带（按字符类型着色，横向 = 文本位置）</div>
+        <canvas id="cBand"></canvas>
+        <div class="rowlab"><span class="sw" style="background:#e0483d"></span>冗余覆盖带</div>
+        <canvas id="cDup"></canvas>
+        <div class="rowlab">冗余弧桥（同一片段的多次出现用弧线相连，弧越高 = 跨度越远）</div>
+        <canvas id="cArc"></canvas>
+        <div class="rowlab">信息熵地形（归一化 0–1，谷底 = 高重复 / 模板化区域）</div>
+        <canvas id="cEnt"></canvas>
+        <canvas id="cAxis"></canvas>
+        <div class="crosshair" id="cross"></div>
+        <div class="tip" id="tip"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd">重复片段
+        <span class="note" id="listNote">—</span>
+      </div>
+      <div class="lhead">
+        <span>#</span><span>片段</span><span class="num">次数</span><span class="num">长度</span><span class="save">可省字符</span>
+      </div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd">上下文占用与成本
+        <span class="note">单价 / 窗口 / 模型名 均可直接编辑</span>
+      </div>
+      <table id="costTable"></table>
+    </div>
+  </section>
+</main>
+
+<div class="foot">PromptTerrain · 单文件 · 零依赖 · 所有计算在本地浏览器完成</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   0. 常量与工具
+   ============================================================ */
+const CJK_RE   = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uAC00-\uD7AF]/;
+const ALPHA_RE = /[A-Za-z]/;
+const DIGIT_RE = /[0-9]/;
+const SPACE_RE = /\s/;
+const PUNCT_KEEP = /[，。；：、“”‘’（）《》！？,\.;:!"'\(\)<>\?\!\-_/\\|@#\$%\^&\*\+=~`\[\]{}]/;
+
+const TYPE_CJK = 0, TYPE_ALPHA = 1, TYPE_DIGIT = 2, TYPE_PUNCT = 3, TYPE_SPACE = 4;
+const TYPE_COLORS = ['#2563eb', '#0f9c8f', '#c07a10', '#94a1b3', '#e6eaf0'];
+const TYPE_NAMES  = ['汉字', '字母', '数字', '标点', '空白'];
+
+function typeOf(ch){
+  if (CJK_RE.test(ch))   return TYPE_CJK;
+  if (SPACE_RE.test(ch)) return TYPE_SPACE;
+  if (DIGIT_RE.test(ch)) return TYPE_DIGIT;
+  if (ALPHA_RE.test(ch)) return TYPE_ALPHA;
+  return TYPE_PUNCT;
+}
+function esc(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmt(n){
+  return (Math.round(n * 10) / 10).toLocaleString('zh-CN');
+}
+function fmtInt(n){
+  return Math.round(n).toLocaleString('zh-CN');
+}
+function scrollbarWidth(){
+  const d = document.createElement('div');
+  d.style.cssText = 'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll;';
+  document.body.appendChild(d);
+  const w = d.offsetWidth - d.clientWidth;
+  d.remove();
+  return w;
+}
+
+/* ============================================================
+   1. Token 估算（保守近似）
+   ============================================================ */
+function estimateTokens(t){
+  if (!t) return 0;
+  let cjk = 0, alpha = 0, digit = 0, punct = 0;
+  for (let i = 0; i < t.length; i++){
+    const ch = t[i];
+    if (CJK_RE.test(ch))        cjk++;
+    else if (SPACE_RE.test(ch)) continue;
+    else if (DIGIT_RE.test(ch)) digit++;
+    else if (ALPHA_RE.test(ch)) alpha++;
+    else                        punct++;
+  }
+  return Math.round(cjk * 1.0 + alpha / 4 + digit / 3 + punct * 0.5);
+}
+
+/* ============================================================
+   2. 归一化（保留下标映射）
+   ============================================================ */
+function normalize(text, opt){
+  const chars = new Array(text.length);
+  const map   = new Int32Array(text.length);
+  let k = 0;
+  for (let i = 0; i < text.length; i++){
+    let ch = text[i];
+    if (opt.ignoreSpace && SPACE_RE.test(ch)) continue;
+    if (opt.ignorePunct && PUNCT_KEEP.test(ch)) continue;
+    if (opt.ignoreCase) ch = ch.toLowerCase();
+    chars[k] = ch;
+    map[k] = i;
+    k++;
+  }
+  return { norm: chars.slice(0, k).join(''), map: map.subarray(0, k) };
+}
+
+/* ============================================================
+   3. 熵序列
+   ============================================================ */
+function entropySeries(text, win){
+  const out = [];
+  const L = text.length;
+  if (L < 8) return out;
+  const step = Math.max(1, Math.round(win / 6));
+  for (let i = 0; i < L; i += step){
+    const end = Math.min(L, i + win);
+    if (end - i < 4) break;
+    const f = new Map();
+    for (let j = i; j < end; j++){
+      const c = text[j];
+      f.set(c, (f.get(c) || 0) + 1);
+    }
+    const len = end - i;
+    let H = 0;
+    for (const v of f.values()){
+      const p = v / len;
+      H -= p * Math.log2(p);
+    }
+    out.push({ x: (i + end) / 2, h: f.size > 1 ? H / Math.log2(f.size) : 0 });
+    if (end === L) break;
+  }
+  return out;
+}
+
+/* 最小周期（KMP 前缀函数）：整段高度重复时，"abcabcabc" 的单元是 "abc" 而不是整体 */
+function smallestPeriod(s){
+  const n = s.length;
+  if (n < 2) return n;
+  const pi = new Int32Array(n);
+  for (let i = 1; i < n; i++){
+    let j = pi[i - 1];
+    while (j > 0 && s[i] !== s[j]) j = pi[j - 1];
+    if (s[i] === s[j]) j++;
+    pi[i] = j;
+  }
+  const p = n - pi[n - 1];
+  return (n % p === 0) ? p : n;
+}
+
+/* 找出 needle 在 hay 中的全部出现位置（允许重叠） */
+function allIndexOf(hay, needle, cap){
+  const out = [];
+  if (!needle) return out;
+  let p = hay.indexOf(needle);
+  while (p !== -1){
+    out.push(p);
+    if (out.length >= cap) break;
+    p = hay.indexOf(needle, p + 1);
+  }
+  return out;
+}
+
+/* ============================================================
+   4. 核心分析
+   ============================================================ */
+function analyze(text, opt){
+  const L = text.length;
+  const result = {
+    length: L, tokens: 0, dupChars: 0, redundancy: 0,
+    mask: new Uint8Array(L), regions: [], series: [], savedChars: 0, savedTokens: 0, ms: 0
+  };
+  if (L === 0) return result;
+
+  const t0 = performance.now();
+  result.tokens = estimateTokens(text);
+
+  const { norm, map } = normalize(text, opt);
+  const N = norm.length;
+
+  if (N >= 4){
+    const n = Math.max(2, Math.min(opt.ngram, Math.max(2, N - 1)));
+    const maskN = new Uint8Array(N);
+    const idx = new Map();
+    for (let i = 0; i + n <= N; i++){
+      const g = norm.slice(i, i + n);
+      let arr = idx.get(g);
+      if (!arr){ arr = []; idx.set(g, arr); }
+      arr.push(i);
+    }
+    for (const arr of idx.values()){
+      if (arr.length < 2) continue;
+      for (let a = 0; a < arr.length; a++){
+        const p = arr[a];
+        for (let k = p; k < p + n; k++) maskN[k] = 1;
+      }
+    }
+
+    // 归一化 mask -> 原文 mask（并把被忽略的空白/标点一并覆盖）
+    const mask = result.mask;
+    for (let k = 0; k < N; k++){
+      if (!maskN[k]) continue;
+      const a = map[k];
+      const b = (k + 1 < N) ? map[k + 1] : (map[k] + 1);
+      for (let j = a; j < b; j++) mask[j] = 1;
+    }
+
+    // 连续重复区间
+    const minLen = Math.max(2, Math.min(opt.minLen, N));
+    let k = 0;
+    while (k < N){
+      if (!maskN[k]){ k++; continue; }
+      const s = k;
+      while (k < N && maskN[k]) k++;
+      const e = k;
+      const len = e - s;
+      if (len >= minLen){
+        const sub = norm.slice(s, e);
+        // 整段若自带周期（连续复制粘贴），取最小周期作为重复单元，否则用整段
+        const per = smallestPeriod(sub);
+        let unit = sub;
+        if (per < sub.length && per >= minLen) unit = sub.slice(0, per);
+
+        let occN = allIndexOf(norm, unit, 400);
+        if (occN.length < 2 && unit !== sub) occN = allIndexOf(norm, sub, 400);
+
+        if (occN.length >= 2){
+          const ulen = unit.length;
+          const occ = occN.map(j => [map[j], map[j + ulen - 1] + 1]);
+          const sample = text.slice(occ[0][0], occ[0][1]);
+          result.regions.push({
+            len: ulen, count: occ.length, occ,
+            text: sample,
+            savedChars: (occ.length - 1) * ulen,
+            tokens: estimateTokens(sample)
+          });
+        }
+      }
+    }
+    result.regions.sort((a, b) => b.savedChars - a.savedChars);
+
+    // 去噪：已被更长片段完全包含、且出现次数相同的片段丢弃
+    const kept = [];
+    for (const r of result.regions){
+      let dup = false;
+      for (const k of kept){
+        if (k.count === r.count && k.text.includes(r.text)){ dup = true; break; }
+      }
+      if (!dup) kept.push(r);
+    }
+    result.regions = kept;
+  }
+
+  for (let j = 0; j < L; j++) if (result.mask[j]) result.dupChars++;
+  result.redundancy  = L ? result.dupChars / L : 0;
+  result.savedChars  = result.regions.reduce((s, r) => s + r.savedChars, 0);
+  result.savedTokens = result.regions.reduce((s, r) => s + r.tokens * (r.count - 1), 0);
+  result.series      = entropySeries(text, opt.win);
+  result.ms          = performance.now() - t0;
+  return result;
+}
+
+/* ============================================================
+   5. 状态
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const input = $('input'), hl = $('hl'), backdrop = $('backdrop');
+const viz = $('viz'), tip = $('tip'), cross = $('cross');
+
+let text = '';
+let R = analyze('', {});
+let hot = null;          // 当前选中的 [start, end]
+let hoverIdx = -1;
+const SB = scrollbarWidth();
+
+const MODELS = [
+  { name: 'GPT-4o 级',        win: 128000, in: 2.5,  out: 10 },
+  { name: 'GPT-4o-mini 级',   win: 128000, in: 0.15, out: 0.6 },
+  { name: 'Claude Sonnet 级', win: 200000, in: 3,    out: 15 },
+  { name: 'Claude Haiku 级',  win: 200000, in: 0.8,  out: 4 }
+];
+
+function opts(){
+  return {
+    ngram:      +$('rN').value,
+    minLen:     +$('rM').value,
+    win:        +$('rW').value,
+    ignoreCase: $('ignoreCase').checked,
+    ignoreSpace:$('ignoreSpace').checked,
+    ignorePunct:$('ignorePunct').checked
+  };
+}
+
+/* ============================================================
+   6. 渲染：统计卡
+   ============================================================ */
+function renderStats(){
+  const pct = R.redundancy * 100;
+  const cards = [
+    { k: '字符数',    v: fmtInt(R.length), u: '', cls: '' },
+    { k: 'Token 估算', v: fmtInt(R.tokens), u: 'tok', cls: '' },
+    { k: '冗余率',    v: fmt(pct), u: '%', cls: pct > 25 ? 'warn' : (pct < 8 ? 'ok' : '') },
+    { k: '可省字符',  v: fmtInt(R.savedChars), u: '字', cls: R.savedChars > 0 ? 'warn' : 'ok' },
+    { k: '可省 Token', v: fmtInt(R.savedTokens), u: 'tok', cls: R.savedTokens > 0 ? 'warn' : 'ok' },
+    { k: '重复片段',  v: fmtInt(R.regions.length), u: '组', cls: '' }
+  ];
+  $('stats').innerHTML = cards.map(c =>
+    '<div class="stat ' + c.cls + '"><div class="k">' + c.k + '</div>' +
+    '<div class="v">' + c.v + (c.u ? '<span class="u">' + c.u + '</span>' : '') + '</div></div>'
+  ).join('');
+}
+
+/* ============================================================
+   7. 渲染：Canvas
+   ============================================================ */
+function fit(cv, h){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 800;
+  cv.width  = Math.max(1, Math.round(w * dpr));
+  cv.height = Math.max(1, Math.round(h * dpr));
+  cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+const H_BAND = 26, H_DUP = 12, H_ARC = 104, H_ENT = 128, H_AXIS = 22;
+
+function drawBand(ctx, w, h){
+  ctx.clearRect(0, 0, w, h);
+  const L = R.length;
+  if (!L){ ctx.fillStyle = '#f2f5f9'; ctx.fillRect(0, 0, w, h); return; }
+  const buckets = Math.max(1, Math.floor(w));
+  const cnt = new Int32Array(buckets * 5);
+  for (let i = 0; i < L; i++){
+    let b = Math.floor(i * buckets / L);
+    if (b >= buckets) b = buckets - 1;
+    cnt[b * 5 + typeOf(text[i])]++;
+  }
+  for (let x = 0; x < buckets; x++){
+    let best = -1, bi = TYPE_SPACE;
+    for (let t = 0; t < 5; t++){
+      const v = cnt[x * 5 + t];
+      if (v > best){ best = v; bi = t; }
+    }
+    ctx.fillStyle = TYPE_COLORS[bi];
+    ctx.fillRect(x, 0, 1, h);
+  }
+}
+
+function drawDup(ctx, w, h){
+  ctx.clearRect(0, 0, w, h);
+  const L = R.length;
+  ctx.fillStyle = '#eef1f6';
+  ctx.fillRect(0, 0, w, h);
+  if (!L) return;
+  const buckets = Math.max(1, Math.floor(w));
+  const hit = new Uint8Array(buckets);
+  for (let i = 0; i < L; i++){
+    if (!R.mask[i]) continue;
+    let b = Math.floor(i * buckets / L);
+    if (b >= buckets) b = buckets - 1;
+    hit[b] = 1;
+  }
+  ctx.fillStyle = '#e0483d';
+  for (let x = 0; x < buckets; x++) if (hit[x]) ctx.fillRect(x, 0, 1, h);
+}
+
+function arcColor(count){
+  if (count >= 8) return '#b91c1c';
+  if (count >= 5) return '#dc4a3f';
+  if (count >= 3) return '#e8804a';
+  return '#eda86a';
+}
+
+function drawArc(ctx, w, h){
+  ctx.clearRect(0, 0, w, h);
+  const L = R.length;
+  const base = h - 6;
+  ctx.strokeStyle = '#e2e6ec';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, base + .5); ctx.lineTo(w, base + .5); ctx.stroke();
+  if (!L || !R.regions.length) return;
+
+  let drawn = 0;
+  for (const r of R.regions){
+    for (let i = 0; i + 1 < r.occ.length; i++){
+      if (drawn > 700) break;
+      const x1 = r.occ[i][0] / L * w;
+      const x2 = r.occ[i + 1][1] / L * w;
+      const dist = Math.abs(x2 - x1);
+      const lift = Math.min(base - 10, 10 + Math.sqrt(Math.max(dist, 1)) * 1.7);
+      ctx.beginPath();
+      ctx.moveTo(x1, base);
+      ctx.quadraticCurveTo((x1 + x2) / 2, base - lift * 2, x2, base);
+      ctx.strokeStyle = arcColor(r.count);
+      ctx.lineWidth = Math.min(2.4, 0.7 + Math.log2(r.count) * 0.4);
+      ctx.globalAlpha = Math.min(0.8, 0.22 + Math.min(r.len, 200) / 300);
+      ctx.stroke();
+      drawn++;
+    }
+    if (drawn > 700) break;
+  }
+  ctx.globalAlpha = 1;
+
+  // 底部：重复区间刻度
+  ctx.fillStyle = 'rgba(224,72,61,.55)';
+  for (const r of R.regions){
+    for (const [s, e] of r.occ){
+      const a = s / L * w, b = Math.max(e / L * w, a + 1);
+      ctx.fillRect(a, base, b - a, 3);
+    }
+  }
+}
+
+function drawEnt(ctx, w, h){
+  ctx.clearRect(0, 0, w, h);
+  const base = h - 14;
+  const top = 8;
+  ctx.strokeStyle = '#eef1f6';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++){
+    const y = Math.round(top + (base - top) * i / 4) + .5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  const L = R.length;
+  if (!L || R.series.length < 2) return;
+
+  const px = x => x / L * w;
+  const py = v => base - v * (base - top);
+
+  const g = ctx.createLinearGradient(0, top, 0, base);
+  g.addColorStop(0, 'rgba(37,99,235,.28)');
+  g.addColorStop(1, 'rgba(37,99,235,.05)');
+  ctx.beginPath();
+  ctx.moveTo(px(R.series[0].x), base);
+  for (const p of R.series) ctx.lineTo(px(p.x), py(p.h));
+  ctx.lineTo(px(R.series[R.series.length - 1].x), base);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  ctx.beginPath();
+  for (let i = 0; i < R.series.length; i++){
+    const p = R.series[i];
+    if (i === 0) ctx.moveTo(px(p.x), py(p.h));
+    else ctx.lineTo(px(p.x), py(p.h));
+  }
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // 谷底标记（低熵 = 模板化）
+  ctx.fillStyle = '#e0483d';
+  for (const p of R.series){
+    if (p.h < 0.55){
+      ctx.beginPath();
+      ctx.arc(px(p.x), py(p.h), 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.fillStyle = '#98a1ad';
+  ctx.font = '10px ui-monospace,monospace';
+  ctx.fillText('熵 1.0', 2, top + 8);
+  ctx.fillText('0', 2, base - 2);
+}
+
+function drawAxis(ctx, w, h){
+  ctx.clearRect(0, 0, w, h);
+  const L = R.length;
+  ctx.strokeStyle = '#dfe4ea';
+  ctx.fillStyle = '#98a1ad';
+  ctx.font = '10px ui-monospace,monospace';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, .5); ctx.lineTo(w, .5); ctx.stroke();
+  if (!L) return;
+  const ticks = 8;
+  for (let i = 0; i <= ticks; i++){
+    const x = Math.min(w - 1, Math.round(w * i / ticks));
+    ctx.beginPath(); ctx.moveTo(x + .5, 0); ctx.lineTo(x + .5, 5); ctx.stroke();
+    const label = fmtInt(L * i / ticks);
+    ctx.textAlign = i === 0 ? 'left' : (i === ticks ? 'right' : 'center');
+    ctx.fillText(label, x, 16);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillText('字符位置', w / 2, 16);
+  ctx.textAlign = 'left';
+}
+
+function renderViz(){
+  drawBand(...vals(fit($('cBand'), H_BAND)));
+  drawDup (...vals(fit($('cDup'),  H_DUP)));
+  drawArc (...vals(fit($('cArc'),  H_ARC)));
+  drawEnt (...vals(fit($('cEnt'),  H_ENT)));
+  drawAxis(...vals(fit($('cAxis'), H_AXIS)));
+}
+function vals(o){ return [o.ctx, o.w, o.h]; }
+
+/* ============================================================
+   8. 渲染：高亮 / 列表 / 成本
+   ============================================================ */
+function buildHighlights(){
+  if (!text){ hl.innerHTML = ''; return; }
+  if (text.length > 150000){ hl.textContent = text; return; }
+  const L = text.length;
+  let html = '', i = 0, marks = 0;
+  while (i < L){
+    if (marks >= 4000){ html += esc(text.slice(i)); break; }
+    if (R.mask[i]){
+      let j = i;
+      while (j < L && R.mask[j]) j++;
+      const isHot = hot && i < hot[1] && j > hot[0];
+      html += '<mark class="' + (isHot ? 'hot' : '') + '">' + esc(text.slice(i, j)) + '</mark>';
+      marks++; i = j;
+    } else {
+      let j = i;
+      while (j < L && !R.mask[j]) j++;
+      html += esc(text.slice(i, j)); i = j;
+    }
+  }
+  hl.innerHTML = html;
+  backdrop.style.paddingRight = (14 + SB) + 'px';
+}
+
+function renderList(){
+  const box = $('list');
+  if (!R.regions.length){
+    box.innerHTML = '<div class="empty">没有检测到重复片段 —— 试着调小「检测粒度」或「最小重复长度」，或先载入示例。</div>';
+    $('listNote').textContent = '—';
+    return;
+  }
+  $('listNote').textContent = R.regions.length + ' 组 · 点击任意一行可跳转到原文';
+  box.innerHTML = R.regions.slice(0, 300).map((r, i) => {
+    const frag = r.text.replace(/\s+/g, ' ').slice(0, 90);
+    return '<div class="lrow" data-i="' + i + '">' +
+      '<span class="idx">' + (i + 1) + '</span>' +
+      '<span class="frag" title="' + esc(r.text.slice(0, 300)) + '">' + esc(frag) + '</span>' +
+      '<span class="num">' + r.count + '</span>' +
+      '<span class="num">' + r.len + '</span>' +
+      '<span class="save">-' + fmtInt(r.savedChars) + '</span>' +
+      '</div>';
+  }).join('');
+  box.querySelectorAll('.lrow').forEach(row => {
+    row.addEventListener('click', () => {
+      const r = R.regions[+row.dataset.i];
+      select(r.occ[0][0], r.occ[0][1]);
+    });
+  });
+}
+
+function renderCost(){
+  const tok = R.tokens;
+  const outTok = +$('rO').value;
+  const saved = R.savedTokens;
+  const rows = MODELS.map((m, i) => {
+    const winPct = Math.min(100, tok / m.win * 100);
+    const costIn = tok / 1e6 * m.in;
+    const costOut = outTok / 1e6 * m.out;
+    const per1k = (costIn + costOut) * 1000;
+    const save1k = saved / 1e6 * m.in * 1000;
+    return '<tr>' +
+      '<td><input data-i="' + i + '" data-f="name" value="' + esc(m.name) + '"></td>' +
+      '<td><input class="t" data-i="' + i + '" data-f="win"  value="' + m.win + '"></td>' +
+      '<td><input class="t" data-i="' + i + '" data-f="in"   value="' + m.in + '"></td>' +
+      '<td><input class="t" data-i="' + i + '" data-f="out"  value="' + m.out + '"></td>' +
+      '<td class="bar"><div class="fill" style="width:' + (winPct * .96) + '%"></div><span>' + fmt(winPct) + '%</span></td>' +
+      '<td class="str">$' + per1k.toFixed(3) + '</td>' +
+      '<td class="str" style="color:#1a8a4f">-$' + save1k.toFixed(3) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  $('costTable').innerHTML =
+    '<thead><tr><th>模型</th><th>上下文窗口</th><th>输入 $/1M</th><th>输出 $/1M</th>' +
+    '<th>窗口占用</th><th>每千次调用</th><th>去重后每千次省</th></tr></thead><tbody>' + rows + '</tbody>';
+
+  $('costTable').querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const m = MODELS[+inp.dataset.i];
+      const f = inp.dataset.f;
+      if (f === 'name') m.name = inp.value;
+      else { const v = parseFloat(inp.value); if (!isNaN(v) && v >= 0) m[f] = v; }
+      renderCost();
+    });
+  });
+}
+
+/* ============================================================
+   9. 交互
+   ============================================================ */
+function select(s, e){
+  hot = [s, e];
+  input.focus();
+  input.setSelectionRange(s, e);
+  const before = text.slice(0, s);
+  const lines = before.split('\n').length;
+  const lh = 12.5 * 1.75;
+  input.scrollTop = Math.max(0, (lines - 6) * lh);
+  buildHighlights();
+  syncScroll();
+}
+
+function syncScroll(){
+  backdrop.scrollTop = input.scrollTop;
+  backdrop.scrollLeft = input.scrollLeft;
+}
+
+input.addEventListener('scroll', syncScroll);
+
+function localEntropy(idx){
+  if (!R.series.length) return 0;
+  let best = R.series[0], bd = Infinity;
+  for (const p of R.series){
+    const d = Math.abs(p.x - idx);
+    if (d < bd){ bd = d; best = p; }
+  }
+  return best.h;
+}
+
+viz.addEventListener('mousemove', ev => {
+  const rect = viz.getBoundingClientRect();
+  const x = ev.clientX - rect.left - 14;
+  const w = viz.clientWidth - 28;
+  if (x < 0 || x > w || !R.length){ tip.style.opacity = 0; cross.style.opacity = 0; return; }
+  const idx = Math.min(R.length - 1, Math.max(0, Math.floor(x / w * R.length)));
+  hoverIdx = idx;
+
+  const ch = text[idx];
+  let region = null;
+  for (const r of R.regions){
+    for (const [s, e] of r.occ){ if (idx >= s && idx < e){ region = r; break; } }
+    if (region) break;
+  }
+  const lines = [];
+  lines.push('位置 ' + fmtInt(idx) + ' / ' + fmtInt(R.length));
+  lines.push('字符 ' + JSON.stringify(ch) + '  ' + TYPE_NAMES[typeOf(ch)]);
+  lines.push('局部熵 ' + localEntropy(idx).toFixed(3) + (localEntropy(idx) < 0.55 ? '  ← 模板化' : ''));
+  lines.push(R.mask[idx] ? '状态 重复覆盖' : '状态 未重复');
+  if (region) lines.push('片段 ×' + region.count + '  长 ' + region.len);
+
+  tip.textContent = lines.join('\n');
+  tip.style.opacity = 1;
+  const tw = tip.offsetWidth;
+  tip.style.left = Math.max(4, Math.min(rect.width - tw - 8, ev.clientX - rect.left + 14)) + 'px';
+  tip.style.top = Math.max(4, ev.clientY - rect.top - 10) + 'px';
+
+  cross.style.opacity = .55;
+  cross.style.left = (14 + x) + 'px';
+});
+
+viz.addEventListener('mouseleave', () => {
+  tip.style.opacity = 0;
+  cross.style.opacity = 0;
+});
+
+viz.addEventListener('click', ev => {
+  if (!R.length) return;
+  const rect = viz.getBoundingClientRect();
+  const x = ev.clientX - rect.left - 14;
+  const w = viz.clientWidth - 28;
+  if (x < 0 || x > w) return;
+  const idx = Math.min(R.length - 1, Math.max(0, Math.floor(x / w * R.length)));
+  for (const r of R.regions){
+    for (const [s, e] of r.occ){
+      if (idx >= s && idx < e){ select(s, e); return; }
+    }
+  }
+  const s = Math.max(0, idx - 60), e = Math.min(R.length, idx + 60);
+  select(s, e);
+});
+
+/* ============================================================
+   10. 主流程
+   ============================================================ */
+let timer = null;
+function run(){
+  text = input.value;
+  $('charNote').textContent = fmtInt(text.length) + ' 字符 · 分析耗时 ' + R.ms.toFixed(1) + ' ms';
+  R = analyze(text, opts());
+  $('charNote').textContent = fmtInt(text.length) + ' 字符 · 分析耗时 ' + R.ms.toFixed(1) + ' ms';
+
+  const wb = $('warnbar');
+  if (text.length > 200000){
+    wb.style.display = 'block';
+    wb.textContent = '文本超过 20 万字符，为保证响应速度已跳过原文高亮；统计与图形仍然有效。';
+  } else wb.style.display = 'none';
+
+  renderStats();
+  renderViz();
+  renderList();
+  renderCost();
+  buildHighlights();
+  syncScroll();
+}
+function schedule(){
+  if (!$('live').checked) return;
+  clearTimeout(timer);
+  timer = setTimeout(run, 220);
+}
+
+input.addEventListener('input', () => {
+  if ($('live').checked) schedule();
+  else $('charNote').textContent = fmtInt(input.value.length) + ' 字符 · 已暂停实时分析';
+});
+
+[['rN','vN'],['rM','vM'],['rW','vW'],['rO','vO']].forEach(([r, v]) => {
+  $(r).addEventListener('input', () => { $(v).textContent = $(r).value; schedule(); });
+});
+['ignoreCase','ignoreSpace','ignorePunct'].forEach(id => $(id).addEventListener('change', run));
+$('live').addEventListener('change', () => { if ($('live').checked) run(); });
+$('rO').addEventListener('input', renderCost);
+$('btnRun').addEventListener('click', () => { clearTimeout(timer); run(); });
+
+$('btnClear').addEventListener('click', () => {
+  input.value = ''; hot = null; run(); input.focus();
+});
+
+$('btnSample').addEventListener('click', () => {
+  input.value = SAMPLE; hot = null; run();
+});
+
+$('btnMd').addEventListener('click', exportMd);
+$('btnPng').addEventListener('click', exportPng);
+
+/* ============================================================
+   11. 导出
+   ============================================================ */
+function exportMd(){
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+                ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const L = [];
+  L.push('# PromptTerrain 冗余扫描报告');
+  L.push('');
+  L.push('- 生成时间：' + stamp);
+  L.push('- 字符数：' + fmtInt(R.length));
+  L.push('- Token 估算：' + fmtInt(R.tokens));
+  L.push('- 冗余率：' + fmt(R.redundancy * 100) + '%');
+  L.push('- 可省字符：' + fmtInt(R.savedChars) + '（约 ' + fmtInt(R.savedTokens) + ' token）');
+  L.push('- 重复片段组数：' + R.regions.length);
+  L.push('');
+  L.push('## 重复片段 Top 20');
+  L.push('');
+  L.push('| # | 出现次数 | 长度 | 可省字符 | 片段 |');
+  L.push('|---|---|---|---|---|');
+  R.regions.slice(0, 20).forEach((r, i) => {
+    const frag = r.text.replace(/\s+/g, ' ').replace(/\|/g, '\\|').slice(0, 60);
+    L.push('| ' + (i + 1) + ' | ' + r.count + ' | ' + r.len + ' | ' + r.savedChars + ' | ' + frag + ' |');
+  });
+  L.push('');
+  L.push('> Token 为保守估算：汉字 1 token/字，拉丁字母 4 字符/token，数字 3 字符/token，标点 0.5 token/个。');
+  L.push('> 本报告由 PromptTerrain 在本地浏览器生成，原始文本未离开本机。');
+  download('prompt-terrain-report.md', L.join('\n'), 'text/markdown');
+}
+
+function exportPng(){
+  const pad = 24, gap = 8;
+  const w = 1000;
+  const rows = [
+    ['Token 带（按字符类型着色）', H_BAND, drawBand],
+    ['冗余覆盖带', H_DUP, drawDup],
+    ['冗余弧桥', H_ARC, drawArc],
+    ['信息熵地形', H_ENT, drawEnt]
+  ];
+  const totalH = pad * 2 + 40 + rows.reduce((s, r) => s + r[1] + 18 + gap, 0) + H_AXIS;
+  const cv = document.createElement('canvas');
+  const dpr = 2;
+  cv.width = w * dpr; cv.height = totalH * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, totalH);
+
+  ctx.fillStyle = '#161a20';
+  ctx.font = '600 17px -apple-system,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif';
+  ctx.fillText('PromptTerrain · 冗余断层扫描', pad, pad + 12);
+  ctx.fillStyle = '#6b7480';
+  ctx.font = '12px -apple-system,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif';
+  ctx.fillText(fmtInt(R.length) + ' 字符 · ' + fmtInt(R.tokens) + ' token · 冗余率 ' +
+               fmt(R.redundancy * 100) + '% · 可省 ' + fmtInt(R.savedTokens) + ' token', pad, pad + 31);
+
+  let y = pad + 40;
+  for (const [label, h, fn] of rows){
+    ctx.fillStyle = '#6b7480';
+    ctx.font = '11px -apple-system,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif';
+    ctx.fillText(label, pad, y + 9);
+    y += 14;
+    const sub = document.createElement('canvas');
+    sub.style.width = w + 'px';
+    sub.width = w * dpr; sub.height = h * dpr;
+    const sctx = sub.getContext('2d');
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fn(sctx, w, h);
+    ctx.drawImage(sub, 0, y, w, h);
+    y += h + gap;
+  }
+  const ax = document.createElement('canvas');
+  ax.width = w * dpr; ax.height = H_AXIS * dpr;
+  const actx = ax.getContext('2d');
+  actx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawAxis(actx, w, H_AXIS);
+  ctx.drawImage(ax, 0, y, w, H_AXIS);
+
+  cv.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'prompt-terrain.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  });
+}
+
+function download(name, content, type){
+  const blob = new Blob([content], { type: type + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ============================================================
+   12. 示例文本
+   ============================================================ */
+const SAMPLE = [
+'你是一个资深的前端架构师，擅长 React、TypeScript 与性能优化。请严格按照以下要求回答问题。',
+'你是一个资深的前端架构师，擅长 React、TypeScript 与性能优化。请严格按照以下要求回答问题。',
+'',
+'# 角色设定',
+'你是一个资深的前端架构师，擅长 React、TypeScript 与性能优化。',
+'你的回答必须专业、准确、可落地，并且必须给出可运行的代码示例。',
+'',
+'# 输出规范',
+'1. 所有代码必须使用 TypeScript 编写，并且必须带有完整的类型标注。',
+'2. 所有代码必须使用 TypeScript 编写，并且必须带有完整的类型标注。',
+'3. 回答中不要出现任何模棱两可的表述，不要使用「可能」「大概」「也许」这类词语。',
+'4. 每段解释之后必须给出一个最小可运行的示例。',
+'5. 如果问题涉及性能，必须同时给出优化前后的复杂度对比。',
+'',
+'# 代码风格',
+'- 使用 2 空格缩进，不要使用 Tab。',
+'- 使用单引号，语句结尾不要写分号。',
+'- 组件必须使用函数式组件与 React Hooks，不要使用 class 组件。',
+'- 组件必须使用函数式组件与 React Hooks，不要使用 class 组件。',
+'- 所有副作用必须写在 useEffect 中，并且必须清理。',
+'',
+'# 回答模板',
+'请按以下顺序组织你的回答：',
+'第一步：问题拆解。把用户的问题拆成 3 到 5 个子问题。',
+'第二步：方案选型。给出 2 到 3 种可行方案，并说明各自的适用场景。',
+'第三步：实现细节。给出完整的 TypeScript 代码。',
+'第四步：风险与边界。说明该方案在什么情况下会失效。',
+'第五步：验证方式。给出可执行的测试或验证步骤。',
+'',
+'# 约束',
+'- 不要编造不存在的 API。',
+'- 不要编造不存在的 API。',
+'- 如果不确定，请明确说明「不确定」，并给出你的推理过程。',
+'- 回答长度控制在 800 字以内，除非用户明确要求更长。',
+'',
+'请确认你已经理解以上全部要求，然后等待用户的第一个问题。',
+'请确认你已经理解以上全部要求，然后等待用户的第一个问题。'
+].join('\n');
+
+/* ============================================================
+   13. 启动
+   ============================================================ */
+window.addEventListener('resize', () => { renderViz(); syncScroll(); });
+window.addEventListener('load', () => { input.value = SAMPLE; run(); });
+run();
+</script>
+</body>
+</html>
