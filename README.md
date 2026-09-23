@@ -1,5 +1,12 @@
 # PromptTerrain · 提示词冗余断层扫描仪
 
+<p align="center">
+  <a href="https://github.com/CJX0712/prompt-terrain/actions/workflows/ci.yml"><img src="https://github.com/CJX0712/prompt-terrain/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://github.com/CJX0712/prompt-terrain/releases"><img src="https://img.shields.io/github/v/release/CJX0712/prompt-terrain?sort=semver" alt="release"></a>
+  <a href="https://github.com/CJX0712/prompt-terrain/blob/main/LICENSE"><img src="https://img.shields.io/github/license/CJX0712/prompt-terrain" alt="license"></a>
+  <img src="https://img.shields.io/badge/author-%E6%99%A8%E6%98%9F-1f6feb" alt="author">
+</p>
+
 > 把一段长 prompt 摊开成一条地形带，一眼看见它在哪里重复、重复了几次、值多少钱。
 
 **单个 HTML 文件，零依赖，双击即用，完全离线。** 所有计算都在你的浏览器里完成，文本不会离开这台设备。
